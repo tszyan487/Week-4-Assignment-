@@ -1,0 +1,129 @@
+---
+title: "Assignment"
+author: "Ivy Li"
+date: "03/01/2020"
+output: html_document
+---
+## Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Objective
+
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. 
+1. You should create a report describing how you built your model
+2. how you used cross validation
+3. what you think the expected out of sample error is
+4. why you made the choices you did
+5. You will also use your prediction model to predict 20 different test cases
+
+## Data
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+## Install Packages
+```{r echo=TRUE, warning=FALSE, eval=TRUE}
+library(ggplot2)
+library(cowplot)
+library(caret)
+```
+## Load the data
+```{r}
+train.data <- read.csv("C:/Users/IvyLi/Documents/R Codes/pml-training.csv")
+test.data <- read.csv("C:/Users/IvyLi/Documents/R Codes/pml-testing.csv")
+
+# remove those variables without any values 
+train <- train.data[,colSums(is.na(train.data)) == 0]
+train <- train[c(2:93)]
+
+test <- test.data[,colSums(is.na(test.data)) == 0]
+test <- test[c(2:60)]
+
+header <- c("user_name",names(test)[7:58], "classe")
+
+train2 <- subset(train, select = header)
+```
+
+## Summarise Dataset
+```{r}
+dim(train2)
+head(train2)
+summary(train2)
+```
+## K-fold Cross Validation 
+K-fold cross-validation is a robust method for estimating the accuracy of a model.
+
+The k-fold cross-validatioin method evaluates the model performance on different subset of the training data and then calculate the average prediction error rate. 
+
+The algorithm is as follow:
+
+1. Randomly split the data set into k-subsets
+2. Reserve one subset and train the model on all other subsets
+3. Test the model on the reserved subset and record the prediction error
+4. Repeat this process until each of the k subsets has served as the test set
+5. Compute the average of the k recorded errors. This is called the cross-validation error serving as the performance metric for the model.
+
+In this scenario, uses 10-fold cross validation to estimate the prediction error. 
+
+The data will then be split into 10 parts, train in 9 and test on 1 and release for all combinations of train-test splits. 
+
+A ratio of the number of correctly predicted instances in divided by the total number of instances in the dataset multiplied by 100 to give a percentage.
+
+
+```{r}
+# Define training control
+set.seed(1234)
+
+# Set up a 10-fold cross validation
+train.control2 <- trainControl(method ="cv", number = 10)
+```
+## Build Models
+
+We do not know which algorithms would be good on this problem or what configurations to use. Hence, we evaluate 5 different algorithms:
+
+1. Linear Discriminant Analysis (LDA)
+2. Classification and Regression Trees (CART)
+3. K-Nearest Neighbors (kNN)
+4. Support Vector Machines (SVM) with a linear kernel
+5. Random Forest (RF)
+
+```{r}
+# Train the model
+
+model.lda <- train(classe ~., data = train2, method = "lda",trControl = train.control2, metric = "Accuracy")
+
+model.cart <- train(classe ~., data = train2, method = "rpart",trControl = train.control2, metric = "Accuracy")
+
+model.knn <- train(classe ~., data = train2, method = "knn",trControl = train.control2, metric = "Accuracy")
+
+model.svm <- train(classe ~., data = train2, method = "svmRadial",trControl = train.control2, metric = "Accuracy")
+
+model.rf <- train(classe ~., data = train2, method = "rf",trControl = train.control2, metric = "Accuracy")
+
+```
+## Select Best Model
+Now we need to compare the models to each other and select the most accurate.
+
+```{r}
+# Summarise the results
+results <- resamples(list(lda = model.lda, cart = model.cart, knn = model.knn, svm =model.svm,rf = model.rf))
+
+summary(results)
+dotplot(results)
+print(model.rf)
+```
+We can see that the most accurate model in this case was Random Forest.
+
+## Make Prediction
+The Random Forest model was the most accurate model. We now can run the Random Forest model directly on the test data and summarise the results in a confusion matrix.
+
+```{r}
+predict_model <- predict(model.rf, test)
+confusionMatrix(predict_model,predict(model.rf,test))
+```
+
+We can see that the accuracy is 100%. 
